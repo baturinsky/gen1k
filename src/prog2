@@ -1,0 +1,70 @@
+const h = 150, w = 300, size = h * w, scale = 4;
+
+const rng = (n) => ~~(Math.random() * n);
+const steps = [-1, 1, -w, w, -1 + w, +1 - w];
+
+let at;
+
+let genGrid = (floor, passes)=>{
+  at = -1;
+  let grid = new Array(size).fill(floor);
+  for (let i = 0; i < size * passes; i++) {
+    at = (at < 0 || at >= size) ? rng(size) : at + steps[rng(6)];
+    grid[at] = (grid[at] * 1 + steps.map(v => grid[at + v] || 0).reduce((a, b) => a + b, 0)) / 7 + 1;
+  }
+  return grid;  
+}
+
+let [grid,grid1] = [genGrid(-10, 7), genGrid(-10, 1.5).map(v => Math.max(0,5-Math.abs(v)))];
+grid = grid.map((v,i) => v + grid1[i]*1)
+
+let rivers = new Array(size).fill(0);
+
+let cnt = 0;
+for (let i = 0; i < size*3; i++) {
+  if(at < 0 || at >= size || grid[at] <-3 || at == undefined)
+    at = rng(size);
+  let srt = steps.sort((a,b)=>grid[a+at]-grid[b+at]);
+  /*let tst = srt.map(n => grid[at + n]);
+  debugger;*/
+  let next = at + srt[0];
+  let d = grid[at] - grid[next];
+  if(i>size*2.9)
+    rivers[at] = 1;
+  if(d>0.1 && next != undefined){
+    grid[at] -= d/6;
+    grid[next] += d/6;
+    at = next;
+  } else{ 
+    at = -1;
+    cnt++;
+  }
+}
+
+console.log(cnt);
+
+//grid = grid.map(v => v - seaLevel);
+
+document.write(`<canvas id="P"/></canvas>`)
+const P = document.getElementById("P") as HTMLCanvasElement;
+P.width = w * scale;
+P.height = h * scale;
+const c = P.getContext("2d");
+/*c.fillStyle = "#00f";
+c.fillRect(0, 0, w * scale, h * scale)*/
+grid.forEach((v, i) => {
+  let h = (v + 20) / 50;
+  c.fillStyle = rivers[at]==1?'#00f':`rgba(${v<-3?"0,30,60":v<0?"0,40,60":"60,40,0"},${v<0?(-v + 40) / 50:(v + 25) / 50})`; 
+  //c.fillStyle = v<-4?'#044':v<0?'#088':v<10?'#4a0':v<20?'#ff0':'#f80'; 
+  c.fillRect((i % w * scale + ~~(i / w) * scale / 2) % (w * scale), ~~(i / w) * scale, scale, scale)
+});
+
+/*c.fillStyle = "#000";
+c.font = "16px Arial"
+c.filter = "sepia(1) contrast(2)"
+for(let i=0;i<size/150;i++){
+  let at = rng(size);
+  let v = grid[at];
+  if(v>0 && v<30)
+    c.fillText(v<3?"⚓":"🐻,💎,👹,🏰,🏛️".split(",")[rng(5)],at%w*scale - 8,at/w*scale+8);
+}*/

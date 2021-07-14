@@ -1,0 +1,1 @@
+google-closure-compiler --js=src/prog1.ts --js_output_file=distr/bundle.cc.js --​compilation_level ADVANCED_OPTIMIZATIONS

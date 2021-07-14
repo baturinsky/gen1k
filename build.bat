@@ -1,0 +1,1 @@
+esbuild src/prog.ts --outfile=distr/bundle.js --watch
