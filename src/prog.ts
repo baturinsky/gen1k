@@ -1,111 +1,144 @@
 {
-  const h = 150, w = 300, size = h * w, scale = 4, riverFlowLevel = 120;
+  const h = 150, w = 300, size = h * w, riverFlowLevel = 120;
   const rng = (n) => ~~(Math.sin(++seed) ** 2 * 1e9 % n);
-  //const rng = (n) => ~~(Math.random() * n);
   const ctx = C.getContext("2d");
 
-  let seed = 1;
+  let seed = 2, scale = 4;
 
+  /**All maps are stored as a one-dimensional array. It makes it much easier to iterate over entire map and over neighbors.*/
   let elevation: number[];
   let river: number[];
   let humidity: number[];
 
-  let directions = 6;
+  let numberOfNeighbors = 6;
   let biomes = true;
 
-  let generate = () => {
+  let generate = async () => {
+    humidity = null;
 
-    let d = [-1, 1, -w, w, -1 + w, +1 - w].slice(0, directions);
+    /**Relative indices of the neighbors*/
+    let d = [-1, 1, -w, w, w - 1, 1 - w, w + 1, -w - 1].slice(0, numberOfNeighbors);
 
     let p = -1;
     let r = -1
-    river = new Array(size).fill(0);
-    elevation = river.map((v, i) => Math.cos(i / size / 2) * 10 - 23);
     let flow;
 
-    for (let t = size * 9; --t; t) {
+    river = new Array(size).fill(0);
+    elevation = new Array(size).fill(-14);
 
-      p = (p + size) % size + d[rng(directions)];
-      elevation[p] = (elevation[p] + d.map(v => elevation[p + v] || 0).reduce((a, b) => a + b, 0) / directions) / 2 + (t / size - 2) / 2 /* + (i<size/3?3:1)*/;
+    //elevation = river.map((v, i) => Math.sin(i%w/30)*10-20);
 
+    /**Tectonic displacement and humidity is generated in parallel */
+    for (let t = size * 10; --t; t) {
+
+      p = (p + size) % size + d[rng(numberOfNeighbors)];
+      elevation[p] =
+        (t / size - 1) / 3 //tectonic fluctuation is reduced over time
+        + (elevation[p] + d.map(v => elevation[p + v] || 0).reduce((a, b) => a + b, 0) / numberOfNeighbors) / 2; //smoothing
+
+      //river flow continues for some time below the sea level, to smooth out microlakes
       if (!(elevation[r] > -5)) {
         r = rng(size);
         flow = 0;
       }
-      let srt = d.sort((a, b) => elevation[a + r] - elevation[b + r]);
-      let next = r + srt[0];
+
+      /** Lowest neighbor */
+      let next = r + d.sort((a, b) => elevation[a + r] - elevation[b + r])[0];
+
+      /**Height difference */
       let dh = elevation[r] - elevation[next];
+
+      // Only add river near the end of the simulation
       if (t < size / 4)
-        river[r] += flow * 7/* / (t / size + 0.5)*/;
+        river[r] += flow * 7
+
       if (dh > 0 && next != undefined) {
         let d = dh / 4;
         elevation[r] -= d;
         elevation[next] += d;
         flow += dh;
-        /*elev[next] += flow*0.5;
-        flow *= 0.5;*/
         r = next;
       } else {
         r = -1;
       }
+
+      /*if (t % 2e4 == 0) {
+        await new Promise(d => setTimeout(d, 10));
+        render();
+      }*/
     }
 
+    /**Humidity. Initially present over seas and rivers, zero elsewhere */
     humidity = elevation.map((h, i) => h < 0 ? 10 : river[i] / riverFlowLevel);
 
+    // Moving humidity around according to prevailing winds
     for (let t = size * 25; --t; t) {
-      //let at = rng(size);
       let at = t % size;
       if (elevation[at] > -1) {
-        let dir = rng(Math.cos(at / size * 6) * 9) + d[rng(directions)] * 2;
+        let dir = rng(Math.cos(at / size * 6) * 9) + d[rng(numberOfNeighbors)] * 2;
         humidity[at + dir] += humidity[at] * 10 / (30 + elevation[at]);
-        humidity[at + dir] = (humidity[at + dir] * 4 + d.map(v => humidity[at + dir + v] || 0).reduce((a, b) => a + b, 0)) / (4 + directions);
+        humidity[at + dir] = (humidity[at + dir] * 4 + d.map(v => humidity[at + dir + v] || 0).reduce((a, b) => a + b, 0)) / (4 + numberOfNeighbors);
       }
     }
+
+    render();
   }
 
-  let render = () => {
+  let render = (left = 0, top = 0) => {
     C.width = w * scale;
     C.height = h * scale;
 
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 2e3, 1e3)
-    ctx.lineWidth = 0.2;
+    //ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 2e3, 1e3);
 
     elevation.forEach((v, i) => {
-      v = ~~v;
-      let heat = Math.sin(i / size * 3.14);
+      let heat = Math.sin(i / size * 3.14) - v/30;
+
+      /**How "green" cell is. Due to size limitation, we only differentiate between desert, plains and forest,
+       * i.e. not making difference between, say, jungles and conifer forest, but there is enough data to make it more detailed.
+       */
       let foliage = humidity[i] - heat * 9;
-      ctx.fillStyle =
-        river[i] > riverFlowLevel && v >= 0 ? '#578' :
-          (v >= 0 && v < 22 && biomes) ?
-            heat * 25 < v ? "#cce" : foliage > 6 ? "#040" : foliage < -2 ? "#a86" : "#560"
-            :
-            `rgba(${v < 0 ? "0,40,60," + (0.6 - v / 30) : "60,40,0," + (v / 70 + 0.6)})`
-      //let h = v<0?-((-v)**2/30):v**1.5/5;
-      ctx.fillRect((i % w * scale + ~~(directions == 6 ? ~~(i / w) * scale / 2 : 0)) % (w * scale), ~~(i / w) * scale, scale, scale)
+
       
-      /*ctx.beginPath();
-      ctx.rect((i % w * scale + ~~(directions == 6 ? ~~(i / w) * scale / 2 : 0)) % (w * scale), ~~(i / w) * scale - h, scale, scale*5);
-      ctx.stroke();*/
+      ctx.fillStyle =
+        //rivers and lakes
+        river[i] > riverFlowLevel && v >= 0 ? '#578' : 
+          //if biomes are shown, then we render them between mountain and sea levels
+          (v >= 0 && v < 22 && biomes && humidity) ? 
+            //biomes
+            heat < 0 ? "#cce" : foliage > 6 ? "#040" : foliage < 0 ? "#a86" : "#560"
+            //sea, mountains, and altitude map if no biomes
+            : `rgba(${v < 0 ? "0,40,60," + (0.7 - v / 30) : "60,40,0," + (v / 70 + 0.6)})`; 
+
+      //Hex grid lines are shifted half cell left on each next row, overflowing to the right
+      ctx.fillRect(
+        left + (i % w * scale + ~~(numberOfNeighbors == 6 ? ~~(i / w) * scale / 2 : 0)) % (w * scale),
+        top + ~~(i / w) * scale,
+        scale,
+        scale
+      );
     });
   }
 
   generate();
-  render();
 
   window.onkeypress = e => {
     if (e.key == 1) {
       biomes = !biomes;
       render();
     } else if (e.key == 2) {
-      directions = 10 - directions;
+      numberOfNeighbors = 14 - numberOfNeighbors;
       generate();
-      render();
     } else {
       seed = e.which;
       generate();
-      render();
     }
   }
-}
 
-//ctx.fillRect((i % w * scale + ~~(directions == 6 ? ~~(i / w) * scale / 2 : 0)) % (w * scale), ~~(i / w) * scale - v, scale, 0.5);
+  /*C.height = C.width = 2e3;
+  scale = 1;
+  for(let i=0;i<12;i++){
+    seed = i;
+    generate();
+    render(i%3*310,~~(i/3)*160);
+  }*/
+}
