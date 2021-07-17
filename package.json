@@ -1,0 +1,14 @@
+{
+  "name": "gen1k",
+  "version": "1.0.0",
+  "description": "Tiny terrain generator",
+  "author": "@baturinsky",
+  "scripts": {
+    "start": "esbuild src/prog.ts --outfile=distr/bundle.js --watch",
+    "build": "esbuild src/prog.ts --outfile=distr/minified.js --minify && regpack distr/minified.js > distr/packed.js"
+  },
+  "devDependencies": {
+  },
+  "dependencies": {
+  }
+}
