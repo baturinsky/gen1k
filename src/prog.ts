@@ -78,16 +78,19 @@
         humidity[at + dir] += humidity[at] * 10 / (30 + elevation[at]);
         humidity[at + dir] = (humidity[at + dir] * 4 + d.map(v => humidity[at + dir + v] || 0).reduce((a, b) => a + b, 0)) / (4 + numberOfNeighbors);
       }
-    }
-
-    render();
+    }    
   }
 
-  render = (left = 0, top = 0) => {
-    C.width = w * scale;
-    C.height = h * scale;
+  render = (corner:[number,number]) => {
 
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 2e3, 1e3);
+    if(!corner){
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 2e3, 2e3);
+      C.width = w * scale;
+      C.height = h * scale;
+    }
+
+    let [left,top] = corner || [0,0];
+
     if (threed) ctx.strokeStyle = `rgba(0,0,0,0.3)`;
 
     elevation.forEach((v, i) => {
@@ -122,11 +125,18 @@
     });
   }
 
-  window.onkeypress = e => {
-    switch (Number(e.key)) {
+  let buttons = [],bon=[];
+
+  let commands = (n:string) => {
+    if(n>=1 && n<=4){
+      bon[n] = !bon[n];
+      buttons[n].style.color = bon[n]?"#080":"#000";
+    }
+    switch (+n) {
       case 1:
         numberOfNeighbors = 10 - numberOfNeighbors;
         generate();
+        render();
         break;
       case 2:
         biomes = !biomes;
@@ -139,23 +149,43 @@
       case 4:
         gradual = !gradual;
         generate();
+        render();
+        break;
+      case 5:
+        gradual = false;
+        generateSeveral();
         break;
       default:
-        seed = e.which;
+        seed = (+n) || n.charCodeAt(0);
         generate();
-    }
+        render();
+    }    
+  }
+
+  window.onkeypress = e => commands(e.key);
+
+  //ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 2e3, 2e3);
+  let names = ";Hex/Square;Biomes;3D;Gradual;Several(slow!)".split(";");
+  for(let i=1;i<=5;i++){
+    let b = buttons[i] = document.createElement("button");
+    b.innerHTML = `${i}. ${names[i]}`;
+    b.onclick = _=>commands(i);
+    U.appendChild(b);
   }
 
   const generateSeveral = () => {
-    C.height = C.width = 2e3;
+    C.width = 1e3;
+    C.height = 640;
     scale = 1;
     for (let i = 0; i < 12; i++) {
       seed = i;
       generate();
-      render(i % 3 * 310, ~~(i / 3) * 160);
+      render([i % 3 * 310, ~~(i / 3) * 160]);
     }
+    scale = 4;
   }
 
   generate();
+  render();
 
 }
