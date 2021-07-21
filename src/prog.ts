@@ -61,10 +61,9 @@
         r = -1;
       }
 
-      if (gradual && t % 2e4 == 0) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-        render();
-      }
+      if (gradual && t % 2e4 == 0) {       
+        await render();
+      }      
     }
 
     /**Humidity. Initially present over seas and rivers, zero elsewhere */
@@ -123,11 +122,14 @@
       if (threed) ctx.stroke();
 
     });
+
+    return new Promise(resolve => window.requestAnimationFrame(resolve));
   }
 
   let buttons = [],bon=[];
 
-  let commands = (n:string) => {
+  let commands = async (n:string) => {
+    document.body.style.cursor = "wait";
     if(n>=1 && n<=4){
       bon[n] = !bon[n];
       buttons[n].style.color = bon[n]?"#080":"#000";
@@ -160,6 +162,7 @@
         generate();
         render();
     }    
+    document.body.style.cursor = "default";
   }
 
   window.onkeypress = e => commands(e.key);
@@ -173,14 +176,14 @@
     U.appendChild(b);
   }
 
-  const generateSeveral = () => {
+  const generateSeveral = async () => {
     C.width = 1e3;
     C.height = 640;
     scale = 1;
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 12; i++) {      
       seed = i;
       generate();
-      render([i % 3 * 310, ~~(i / 3) * 160]);
+      await render([i % 3 * 310, ~~(i / 3) * 160]);
     }
     scale = 4;
   }
