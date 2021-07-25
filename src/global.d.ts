@@ -1,1 +1,1 @@
-declare const C:HTMLCanvasElement, U:HTMLDivElement;
+declare const C:HTMLCanvasElement, U:HTMLDivElement, N:HTMLInputElement;

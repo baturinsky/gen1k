@@ -1,14 +1,15 @@
 {
   const h = 150, w = 300, size = h * w, riverFlowLevel = 120;
-  const rng = (n) => ~~(Math.sin(++seed) ** 2 * 1e9 % n);
-  const ctx = C.getContext("2d");
   let seed = 7, scale = 4, threed = false, gradual = false;
+  const ctx = C.getContext("2d");
+  N.value = seed;
   let elevation;
   let river;
   let humidity;
   let numberOfNeighbors = 6;
   let biomes = true;
   let render;
+  const rng = (n) => ~~(Math.sin(++seed) ** 2 * 1e9 % n) * Math.sign(n);
   let generate = async () => {
     humidity = null;
     let d = [-1, 1, -w, w, w - 1, 1 - w, w + 1, -w - 1].slice(0, numberOfNeighbors);
@@ -18,7 +19,7 @@
     river = new Array(size).fill(0);
     elevation = new Array(size).fill(-14);
     for (let t = size * 10; --t; t) {
-      p = (p + size) % size + d[rng(numberOfNeighbors)];
+      p = (p + size + d[rng(numberOfNeighbors)]) % size;
       elevation[p] = (t / size - 1) / 3 + (elevation[p] + d.map((v) => elevation[p + v] || 0).reduce((a, b) => a + b, 0) / numberOfNeighbors) / 2;
       if (!(elevation[r] > -5)) {
         r = rng(size);
@@ -41,12 +42,16 @@
         await render();
       }
     }
-    humidity = elevation.map((h2, i) => h2 < 0 ? 10 : river[i] / riverFlowLevel);
+    humidity = elevation.map((h2, i) => 1e3 * (h2 < 0 ? 1 : river[i] / riverFlowLevel));
     for (let t = size * 25; --t; t) {
       let at = t % size;
-      if (elevation[at] > -1) {
-        let dir = rng(Math.cos(at / size * 6) * 9) + d[rng(numberOfNeighbors)] * 2;
-        humidity[at + dir] += humidity[at] * 10 / (30 + elevation[at]);
+      let dir = rng(Math.cos(at / size * 6) * 20);
+      if (elevation[at + dir] > 0) {
+        let carry = humidity[at] * Math.min(0.3, 10 / (5 + elevation[at + dir]));
+        if (carry > 0) {
+          humidity[at + dir] += carry;
+          humidity[at] -= carry;
+        }
         humidity[at + dir] = (humidity[at + dir] * 4 + d.map((v) => humidity[at + dir + v] || 0).reduce((a, b) => a + b, 0)) / (4 + numberOfNeighbors);
       }
     }
@@ -63,8 +68,8 @@
       ctx.strokeStyle = `rgba(0,0,0,0.3)`;
     elevation.forEach((v, i) => {
       let heat = Math.sin(i / size * 3.14) - v / 30;
-      let foliage = (humidity ? humidity[i] : 0) - heat * 9;
-      ctx.fillStyle = river[i] > riverFlowLevel && v >= 0 ? "#578" : v >= 0 && v < 22 && biomes && humidity ? heat < 0 ? "#cce" : foliage > 6 ? "#040" : foliage < 0 ? "#a86" : "#560" : `rgba(${v < 0 ? "0,40,60," + (0.7 - v / 30) : "60,40,0," + (v / 70 + 0.6)})`;
+      let vegetation = humidity ? humidity[i] : 0;
+      ctx.fillStyle = river[i] > riverFlowLevel && v >= 0 ? "#578" : v >= 0 && v < 22 && biomes && humidity ? heat < 0 ? "#cce" : vegetation > 10 ? "#040" : vegetation < 2 ? "#a86" : "#560" : `rgba(${v < 0 ? "0,40,60," + (0.7 - v / 30) : "60,40,0," + (v / 70 + 0.6)})`;
       ctx.beginPath();
       ctx.rect(left + (i % w * scale + ~~(numberOfNeighbors == 6 ? ~~(i / w) * scale / 2 : 0)) % (w * scale), top + ~~(i / w) * scale - (threed ? v : 0), scale, scale * (threed ? 5 : 1));
       ctx.fill();
@@ -83,7 +88,7 @@
     switch (+n) {
       case 1:
         numberOfNeighbors = 10 - numberOfNeighbors;
-        generate();
+        await generate();
         render();
         break;
       case 2:
@@ -96,7 +101,7 @@
         break;
       case 4:
         gradual = !gradual;
-        generate();
+        await generate();
         render();
         break;
       case 5:
@@ -104,14 +109,14 @@
         generateSeveral();
         break;
       default:
-        seed = +n || n.charCodeAt(0);
-        generate();
+        seed = n;
+        await generate();
         render();
     }
     document.body.style.cursor = "default";
   };
-  window.onkeypress = (e) => commands(e.key);
-  let names = ";Hex/Square;Biomes;3D;Gradual;Several(slow!)".split(";");
+  N.onchange = (_) => commands(N.value);
+  let names = ";Square Grid;Heightmap;3D;Gradual;Several(slow!)".split(";");
   for (let i = 1; i <= 5; i++) {
     let b = buttons[i] = document.createElement("button");
     b.innerHTML = `${i}. ${names[i]}`;
