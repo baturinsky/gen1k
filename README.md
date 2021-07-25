@@ -1,6 +1,6 @@
 # A tiny terrain generator 
 
-Made for js1024 [https://js1024.fun/demos/2021#24] contest. Minified version is under 1k js.
+Made for js1024 https://js1024.fun/demos/2021#24 contest. Minified version is under 1k js.
 
 ![screenshot.jpg](screenshot.jpg)
 
